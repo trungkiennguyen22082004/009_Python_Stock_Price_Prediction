@@ -39,8 +39,11 @@ DATA_SOURCE = "yahoo"
 COMPANY = "TSLA"
 
 # start = '2012-01-01', end='2017-01-01'
-TRAIN_START = '2015-01-01'
-TRAIN_END = '2020-01-01'
+# TRAIN_START = '2015-01-01'
+# TRAIN_END = '2020-01-01'
+
+TRAIN_START = '2012-01-01'
+TRAIN_END = '2017-01-01'
 
 data =  yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
 # yf.download(COMPANY, start = TRAIN_START, end=TRAIN_END)
