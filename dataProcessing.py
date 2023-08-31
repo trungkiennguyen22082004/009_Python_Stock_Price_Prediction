@@ -10,9 +10,12 @@ import joblib
 
 from parameters import COMPANY, DATA_SOURCE, END_DATE, START_DATE
 
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+
 def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01", endDate="2020-01-01", dataSource = "yahoo", 
                     trainRatio=0.8, randomSplit=False, randomSeed=None,
                     isScaledData=True, featureRange=(0, 1), isStoredScaler=True):
+    
     #   Check if the stock data's folder is exist
     if (not os.path.isdir("stockdatas")):
         os.mkdir("stockdatas")    
@@ -103,16 +106,15 @@ def scaleData(company, data, dataType, isStoredScaler, featureRange=(0, 1)):
 
     return scaledData, scaler
 
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST DATA PROCESSING
 
 # (trainData, testData) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, True, (0, 1), True)
 
-(trainData, testData) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, False, (0, 1), False)
+# print("===============================================================")
+# print("Train Data:")
+# print(trainData)
 
-print("===============================================================")
-print("Train Data:")
-print(trainData)
-
-print("===============================================================")
-print("Test Data")
-print(testData)
+# print("===============================================================")
+# print("Test Data")
+# print(testData)
