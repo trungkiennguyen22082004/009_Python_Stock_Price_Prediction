@@ -1,5 +1,23 @@
+from keras import layers
+
 DATA_SOURCE = "yahoo"
 COMPANY = "TSLA"
 
-START_DATE = '2020-01-01'
-END_DATE = '2020-06-30'
+START_DATE = '2015-01-01'
+END_DATE = '2022-12-31'
+
+FEATURE_COLUMNS = ["Open", "High", "Low", "Close"]
+
+PREDICTION_DAYS = 60
+
+LAYERS_NUMBER = 4
+LAYER_SIZE = 256
+LAYER_NAME = layers.GRU
+
+LOSS = "huber_loss"
+OPTIMIZER = "adam"
+BATCH_SIZE = 16
+EPOCHS = 100
+
+DROPOUT = 0.3
+BIDIRECTIONAL = False

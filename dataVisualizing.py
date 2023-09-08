@@ -9,23 +9,25 @@ from dataProcessing import *
 
 def preProcessDiplayedData(data, tradingDaysNumber):
     # Resample data to specified trading days (take the average value of <tradingDaysNumber> consecutive days)
-    resampledData = data.resample("{}B".format(tradingDaysNumber)).agg({"Open": "mean", "High": "mean", "Low": "mean", "Close": "mean"})
+    if (tradingDaysNumber > 1):
+        resampledData = data.resample("{}B".format(tradingDaysNumber)).agg({"Open": "mean", "High": "mean", "Low": "mean", "Close": "mean"})
+    else:
+        resampledData = data.copy()
 
     # Reset index to convert dates to numerical values for candlestick plotting
     resampledData.reset_index(inplace=True)
         
-    # print("================ INITIAL DATA ====================")
-    # print(data)
-    # print("=============== RESAMPLED DATA ===================")
-    # print(resampledData)
+    print("================ INITIAL DATA ====================")
+    print(data)
+    print("=============== RESAMPLED DATA ===================")
+    print(resampledData)
     
     return resampledData
 
-def candlestickChartDisplay(data, tradingDaysNumber=1, title="Stock Candlestick Chart"):
-
+def candlestickChartDisplay(data, tradingDaysNumber=1, title="Stock Candlestick Chart", colorup="g", colordown="r"):
     # Check if the number of trading days is less than 1
     if (tradingDaysNumber < 1):
-        print("tradingDaysNumber must be equal or greater than 1.")
+        raise ValueError("tradingDaysNumber must be equal or greater than 1.")
     else:
         resampledData = preProcessDiplayedData(data, tradingDaysNumber)  
         
@@ -36,7 +38,7 @@ def candlestickChartDisplay(data, tradingDaysNumber=1, title="Stock Candlestick 
         (fig, ax) = plt.subplots(figsize=(16, 9))
         
         # Plot the candlestick chart on these axes using the data from the DataFrame.
-        candlestick_ohlc(ax, resampledData.values, width=0.6, colorup="g", colordown="r", alpha=0.8)
+        candlestick_ohlc(ax, resampledData.values, width=0.6, colorup=colorup, colordown=colordown, alpha=0.8)
 
         # Format the date
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
@@ -53,15 +55,12 @@ def candlestickChartDisplay(data, tradingDaysNumber=1, title="Stock Candlestick 
         
         # Adjust the layout of the plot to prevent elements from overlapping and improve overall aesthetics
         plt.tight_layout()
-        
-        plt.show()
-        
 
 def boxplotChartDisplay(data, tradingDaysNumber=1, title="Stock Boxplot Chart"):
 
     # Check if the number of trading days is less than 1
     if (tradingDaysNumber < 1):
-        print("tradingDaysNumber must be equal or greater than 1.")
+         raise ValueError("tradingDaysNumber must be equal or greater than 1.")
     else:
         resampledData = preProcessDiplayedData(data, tradingDaysNumber)
         
@@ -95,17 +94,17 @@ def boxplotChartDisplay(data, tradingDaysNumber=1, title="Stock Boxplot Chart"):
         
         # Adjust the layout of the plot to prevent elements from overlapping and improve overall aesthetics
         plt.tight_layout()
-        
-        plt.show()
     
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST DATA VISUALIZING
 
-(trainData, testData) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, False, (0, 1), False)
+# (trainData, testData, trainDates, testDates) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, False, (0, 1), False)
 
 # candlestickChartDisplay(testData, 1)
 # candlestickChartDisplay(testData, 3)
 
 # boxplotChartDisplay(testData, 1)
 # boxplotChartDisplay(testData, 2)
-boxplotChartDisplay(testData, 5)
+# boxplotChartDisplay(testData, 5)
+
+# plt.show()

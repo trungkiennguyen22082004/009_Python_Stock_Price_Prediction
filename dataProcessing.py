@@ -2,13 +2,12 @@ import os
 
 import pandas as pd
 import numpy as np
-from tensorflow.python import train
 import yfinance as yf
 
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 
-from parameters import COMPANY, DATA_SOURCE, END_DATE, START_DATE
+from parameters import *
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -47,12 +46,14 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
                 trainData.to_csv(trainDataFilePath)
                 testData.to_csv(testDataFilePath)
 
+        (trainDates, testDates) = (trainData.index, testData.index)
+
         # SCALE DATA 
         if (isScaledData):
             trainData = scaleData(company, trainData, "training", isStoredScaler, featureRange)
             testData = scaleData(company, testData, "testing", isStoredScaler, featureRange)
 
-        return (trainData, testData)
+        return (trainData, testData, trainDates, testDates)
 
 def splitData(data, trainRatio, randomSplit, randomSeed):
     if (not 0 < trainRatio < 1):
@@ -109,7 +110,7 @@ def scaleData(company, data, dataType, isStoredScaler, featureRange=(0, 1)):
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST DATA PROCESSING
 
-# (trainData, testData) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, True, (0, 1), True)
+# (trainData, testData, trainDates, testDates) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, False, (0, 1), False)
 
 # print("===============================================================")
 # print("Train Data:")
