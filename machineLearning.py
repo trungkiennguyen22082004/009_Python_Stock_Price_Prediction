@@ -56,7 +56,7 @@ def constructDLModel(featureColumns=["Open", "High", "Low", "Close"], sequenceLe
 # TEST MACHINE LEARNING MODEL
 
 # Training
-def trainDLModel(trainData, featureColumns=["Open", "High", "Low", "Close"], sequenceLength=50, layersNumber=2, layerSize=256, layerName=layers.LSTM, 
+def trainDLModel(processedData, featureColumns=["Open", "High", "Low", "Close"], sequenceLength=50, layersNumber=2, layerSize=256, layerName=layers.LSTM, 
                      dropout=0.3, loss="mean_absolute_error", optimizer="rmsprop", bidirectional=False,
                      epochs=50, batchSize=32):
     #   Check if the model's folder is exist
@@ -67,39 +67,12 @@ def trainDLModel(trainData, featureColumns=["Open", "High", "Low", "Close"], seq
                                                                                                                      layerSize, str(layerName).split('.')[-1].split("'")[0], 
                                                                                                                      dropout, loss, optimizer, bidirectional, epochs, batchSize)
 
-    if (not os.path.exists(modelFilePath)):
-        # Extract the relevant features from trainData
-        usedTrainData = trainData[0][:, :4]
-
-        # print("================ USED TRAIN DATA =================")
-        # print(usedTrainData)
-
-        # Initialize empty lists for sequences and corresponding target values
-        sequences = []
-        targetValues = []
-
-        # Create sequences and target values
-        for i in range(len(usedTrainData) - PREDICTION_DAYS):
-            sequence = usedTrainData[i:i + PREDICTION_DAYS] 
-            targetValue = usedTrainData[i + PREDICTION_DAYS: i + PREDICTION_DAYS + 1]
-    
-            sequences.append(sequence)
-            targetValues.append(targetValue)
-    
-        # Convert lists to NumPy arrays
-        xTrain = np.array(sequences)
-        yTrain = np.array(targetValues)
-
-        # print("================ X-TRAIN DATA ====================")
-        # print(xTrain)
-        # print("================ Y-TRAIN DATA ====================")
-        # print(yTrain)
-
+    if (not os.path.exists(modelFilePath)):        
         # Create and train the Deep Learning model
         model = constructDLModel(featureColumns=featureColumns, sequenceLength=sequenceLength, layersNumber=layersNumber, layerSize=layerSize, layerName=layerName, 
                                    dropout=dropout, loss=loss, optimizer=optimizer, bidirectional=bidirectional)
 
-        model.fit(xTrain, yTrain, epochs=epochs, batch_size=batchSize)
+        model.fit(x=processedData["XTest"], y=processedData["YTest"], epochs=EPOCHS, batch_size=BATCH_SIZE, validation_data=(processedData["XTest"], processedData["YTest"]))
         
         # Save the model
         model.save(modelFilePath)
@@ -112,104 +85,38 @@ def trainDLModel(trainData, featureColumns=["Open", "High", "Low", "Close"], seq
     return model
 
 # Testing
-def testDLModel(testData, testDates, model, featureColumns=["Open", "High", "Low", "Close"]):
-    # Set up xTest data
-    usedTestData = testData[0][:, :len(featureColumns)]
-    
-    sequences = []
-    actualData = []
-    predictedData = []
-    
-    for i in range(len(usedTestData) - PREDICTION_DAYS):
-        sequence = usedTestData[i:i + PREDICTION_DAYS]
-        actualValue = usedTestData[i + PREDICTION_DAYS:i + PREDICTION_DAYS + 1]
-        
-        # Predict the value using the model
-        # predictedValue = model.predict(np.expand_dims(sequence, axis=0))
 
-        sequences.append(sequence)
-        actualData.append(actualValue)
-        # predictedData.append(predictedValue)
-        
-    # Convert lists to NumPy arrays
-    xTest = np.array(sequences)
-    
-    predictedData = model.predict(xTest)
-    
-    actualData = descaleAndConvertToDataFrame(data=actualData, testData=testData, featureColumns=featureColumns, testDates=testDates)
-       
-    print("================= ACTUAL DATA ====================")
-    print(actualData)
+processedData = processData(isStoredDataLocally=True, company=COMPANY, startDate=START_DATE, endDate=END_DATE, dataSource=DATA_SOURCE, 
+                            predictionDays=PREDICTION_DAYS, lookupSteps=LOOKUP_STEPS, featureColumns=FEATURE_COLUMNS,
+                            trainRatio=0.8, randomSplit=False, randomSeed=None, isScaledData=IS_SCALED_DATA, featureRange=(0, 1), isStoredScaler=True)
 
-    predictedData = descaleAndConvertToDataFrame(data=predictedData, testData=testData, featureColumns=featureColumns, testDates=testDates)
-    
-    print("================ PREDICTED DATA ==================")
-    print(predictedData)
-
-    return (actualData, predictedData)
-
-def descaleAndConvertToDataFrame(data, testData, featureColumns, testDates):
-    # Convert lists to NumPy arrays
-    result = np.array(data)
-    
-    # Reshape actual and predicted data to 2D arrays
-    result = result.reshape(-1, result.shape[-1])
-    
-    # Get the Scaler
-    testScaler = testData[1]
-    
-    # The scaler is for the array of 6 columns, so I add (6 - len(featureColumns)) columns of "0" value to the right
-    result = np.hstack((result, np.zeros((result.shape[0], (6 - len(featureColumns))))))
-
-    # Descale the data
-    result = testScaler.inverse_transform(result)
-    
-    # Get the dates for the actualData predictedData (except the first <len(featureColumns)> dates)
-    dataDates = testDates[-(len(result)):]
-    dataDates = pd.Series(dataDates, name="Date")
-
-    # Convert to Pandas DataFrames, adding dates column and set indices
-    result = pd.DataFrame(data=result, columns=featureColumns + ([None] * (6 - len(featureColumns))))
-    result = pd.concat([dataDates, result], axis=1).set_index("Date")
-
-    # Make sure the result is pandas.DataFrame (for correctly plotting)
-    result = pd.DataFrame(data=result)
-    
-    return result
-
-(trainData, testData, trainDates, testDates) = processData(True, COMPANY, START_DATE, END_DATE, DATA_SOURCE, 0.8, False, None, True, (0, 1), True)
-
-model = trainDLModel(trainData=trainData, featureColumns=FEATURE_COLUMNS, sequenceLength=PREDICTION_DAYS, layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
+model = trainDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, sequenceLength=PREDICTION_DAYS, layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
                               dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
                               epochs=EPOCHS, batchSize=BATCH_SIZE)
 
-(actualData, predictedData) = testDLModel(testData, testDates, model, featureColumns=FEATURE_COLUMNS)  
+# Get actual and predicted data
+yActualData = processedData["YTest"]
+yPredictedData = model.predict(processedData["XTest"])
 
-# Plot each data in candlestick chart
-# candlestickChartDisplay(actualData, 1)
-# candlestickChartDisplay(predictedData, 1)
+# Descale
+if (IS_SCALED_DATA):
+    yActualData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(np.expand_dims(yActualData, axis=0)))
+    yPredictedData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(yPredictedData))
+    
+# Get the Close predicted data
+yPredictedData = [row[3] for row in yPredictedData]
+   
+print("================ Y-ACTUAL DATA ===================")
+print(yActualData)
+print("=============== Y-PREDICTED DATA =================")   
+print(yPredictedData)
 
-# Plot both in a line chart
+# Plot
 plt.figure(figsize=(16, 9))
-
-# Choose the feature column to plot. E.g. "Open"
-plottingCol = "Close"
-
-# Plot the actual data's Open price in blue
-plt.plot(actualData.index, actualData[plottingCol], label="Actual {}".format(plottingCol), color='blue', linewidth=2)
-
-# Plot the predicted data's Open price in orange
-plt.plot(predictedData.index, predictedData[plottingCol], label="Predicted {}".format(plottingCol), color='orange', linestyle='--', linewidth=2)
-
-# Set plot labels and title
+plt.title("{} Close Price Prediction".format(COMPANY))
+plt.plot(yActualData, label="Actual Prices", color="blue")
+plt.plot(yPredictedData, label="Predicted Prices", color="orange")
 plt.xlabel("Date")
-plt.ylabel("Open Price")
-plt.title("Actual vs. Predicted Open Price")
-
-# Add a legend
+plt.ylabel("Price")
 plt.legend()
-
-# Show the plot
-plt.grid()
 plt.show()
-
