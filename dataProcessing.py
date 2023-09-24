@@ -1,4 +1,5 @@
 import collections
+from hmac import new
 import os
 from unittest import result
 import joblib
@@ -15,7 +16,7 @@ from parameters import *
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01", endDate="2020-01-01", dataSource = "yahoo", 
-                    predictionDays=50, lookupSteps=1, featureColumns=["Open", "High", "Low", "Close"],
+                    numOfPastDays=50, numOfFutureDays=1, lookupSteps=1, featureColumns=["Open", "High", "Low", "Close"],
                     trainRatio=0.8, randomSplit=False, randomSeed=None,
                     isScaledData=True, featureRange=(0, 1), isStoredScaler=True):
     
@@ -61,24 +62,24 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
         # Add the target column (label) by shifting by <lookupStep>
         data["Future"] = data["Close"]
         
-        # The last <lookupSteps> column(s) contains NaN in the "Future" column, get them before droping NaNs
+        # The last <lookupSteps> column(s) contains NaN in the "Future" column, get them before handling NaN values
         lastSequence = np.array(data[featureColumns].tail(lookupSteps))
     
         # Handle NaN values in the data by forwarding fill missing values
-        data.fillna(method='ffill', inplace=True)   
+        data.fillna(method='ffill', inplace=True)
         
         # Create a list of sequences of features and their corresponding targets
         sequenceData = []
-        sequences = collections.deque(maxlen=predictionDays)
+        sequences = collections.deque(maxlen=numOfPastDays)
         
         for (sequence, target) in zip(data[featureColumns + ["Date"]].values, data["Future"].values):
             sequences.append(sequence)      
 
-            if (len(sequences) == predictionDays):
+            if (len(sequences) == numOfPastDays):
                 sequenceData.append([np.array(sequences), target])
 
-        # Get the last sequence by appending the last <predictionDays> sequence with <lookupSteps> sequence
-        # E.g. If lookupSteps=a and predictionDays=b, lastSequence should be of (a+b) length
+        # Get the last sequence by appending the last <numOfPastDays> sequence with <lookupSteps> sequence
+        # E.g. If lookupSteps=a and numOfPastDays=b, lastSequence should be of (a+b) length
         # This lastSequence will be used to predict future stock prices that are not available in the dataset
         lastSequence = list([sequence[:len(featureColumns)] for sequence in sequences]) + list(lastSequence)     
 
@@ -90,15 +91,38 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
         (x, y) = ([], [])
         for (sequence, target) in sequenceData:
             x.append(sequence)
-            y.append(target)
+            y.append(target)        
             
         # Convert to Numpy arrays
         x = np.array(x)
         y = np.array(y)
+
+        # Reshape the targets to a 2D array, each element is a 1D array of <numOfFutureDays> value(s)
+        if (numOfFutureDays > 0):
+            # Calculate the number of rows in the new 2D array
+            newYLength = len(y) + 1 - numOfFutureDays
+
+            # Initialize the 2D array
+            intermediateY = np.empty((newYLength, numOfFutureDays), dtype=y.dtype)
+            
+            # Fill the new 2D array
+            for i in range(newYLength):
+                intermediateY[i] = y[i:(i + numOfFutureDays)]
+               
+            # Assign the new y array
+            y = intermediateY
+            # Modify the x to remove the element(s) that do not have the corresponding element(s) in the new y array
+            if (numOfFutureDays > 1):
+                x = x[:(1 - numOfFutureDays)]
+        
+        # print("=================X==================")
+        # print(x)
+        # print("=================Y==================")
+        # print(y)
         
         # SPLIT DATA
         (processedData["XTrain"], processedData["XTest"], processedData["YTrain"], processedData["YTest"]) = splitData(x=x, y=y, 
-                                                                                                                       trainRatio=trainRatio, randomSplit=randomSplit, randomSeed=randomSeed)   
+                                                                                                                       trainRatio=trainRatio, randomSplit=randomSplit, randomSeed=randomSeed)
 
         # Get the xTest dates
         dates = processedData["XTest"][:, -1, -1]
@@ -139,9 +163,6 @@ def scaleData(data, dataFileName, featureColumns=["Open", "High", "Low", "Close"
         # Scale the data with the new scaler
         if (not os.path.exists(scalerFilePath)):
             # Scale data
-            print(data[col])
-            print("=====================")
-
             scaler = MinMaxScaler(feature_range=featureRange)
             
             data[col] = scaler.fit_transform(np.expand_dims(data[col], axis=1))
@@ -168,7 +189,7 @@ def scaleData(data, dataFileName, featureColumns=["Open", "High", "Low", "Close"
 # TEST DATA PROCESSING
 
 # processedData = processData(isStoredDataLocally=True, company=COMPANY, startDate=START_DATE, endDate=END_DATE, dataSource=DATA_SOURCE, 
-#                             predictionDays=PREDICTION_DAYS, lookupSteps=LOOKUP_STEPS, featureColumns=FEATURE_COLUMNS,
+#                             numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, lookupSteps=LOOKUP_STEPS, featureColumns=FEATURE_COLUMNS,
 #                             trainRatio=0.8, randomSplit=False, randomSeed=None, isScaledData=True, featureRange=(0, 1), isStoredScaler=True)
 
 # print("===================== DATA =======================")

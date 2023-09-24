@@ -9,16 +9,20 @@ END_DATE = '2022-12-31'
 FEATURE_COLUMNS = ["Open", "High", "Low", "Close"]
 IS_SCALED_DATA = True
 
-PREDICTION_DAYS = 60
+# Number of days on which to base the prediction process
+NUMBER_OF_PAST_DAYS = 60
+# Number of future days predicted
+NUMBER_OF_FUTURE_DAYS = 3
+
 LOOKUP_STEPS = 10
 
-LAYERS_NUMBER = 4
-LAYER_SIZE = 256
+LAYERS_NUMBER = 2
+LAYER_SIZE = 64
 LAYER_NAME = layers.GRU
 
-LOSS = "huber_loss"
+LOSS = "mean_squared_error"
 OPTIMIZER = "adam"
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 EPOCHS = 100
 
 DROPOUT = 0.3

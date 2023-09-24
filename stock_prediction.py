@@ -74,7 +74,7 @@ scaled_data = scaler.fit_transform(data[PRICE_VALUE].values.reshape(-1, 1))
 # given to reshape so as to maintain the same number of elements.
 
 # Number of days to look back to base the prediction
-PREDICTION_DAYS = 60 # Original
+NUMBER_OF_PAST_DAYS = 60 # Original
 
 # To store the training data
 x_train = []
@@ -82,8 +82,8 @@ y_train = []
 
 scaled_data = scaled_data[:,0] # Turn the 2D array back to a 1D array
 # Prepare the data
-for x in range(PREDICTION_DAYS, len(scaled_data)):
-    x_train.append(scaled_data[x-PREDICTION_DAYS:x])
+for x in range(NUMBER_OF_PAST_DAYS, len(scaled_data)):
+    x_train.append(scaled_data[x-NUMBER_OF_PAST_DAYS:x])
     y_train.append(scaled_data[x])
 
 # Convert them into an array
@@ -171,7 +171,7 @@ actual_prices = test_data[PRICE_VALUE].values
 
 total_dataset = pd.concat((data[PRICE_VALUE], test_data[PRICE_VALUE]), axis=0)
 
-model_inputs = total_dataset[len(total_dataset) - len(test_data) - PREDICTION_DAYS:].values
+model_inputs = total_dataset[len(total_dataset) - len(test_data) - NUMBER_OF_PAST_DAYS:].values
 # We need to do the above because to predict the closing price of the first PREDICTION_DAYS of the test period [TEST_START, TEST_END], we'll need the data from the training period
 
 model_inputs = model_inputs.reshape(-1, 1)
@@ -189,8 +189,8 @@ model_inputs = scaler.transform(model_inputs)
 # Make predictions on test data
 #------------------------------------------------------------------------------
 x_test = []
-for x in range(PREDICTION_DAYS, len(model_inputs)):
-    x_test.append(model_inputs[x - PREDICTION_DAYS:x, 0])
+for x in range(NUMBER_OF_PAST_DAYS, len(model_inputs)):
+    x_test.append(model_inputs[x - NUMBER_OF_PAST_DAYS:x, 0])
 
 x_test = np.array(x_test)
 x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
@@ -222,7 +222,7 @@ plt.show()
 #------------------------------------------------------------------------------
 
 
-real_data = [model_inputs[len(model_inputs) - PREDICTION_DAYS:, 0]]
+real_data = [model_inputs[len(model_inputs) - NUMBER_OF_PAST_DAYS:, 0]]
 real_data = np.array(real_data)
 real_data = np.reshape(real_data, (real_data.shape[0], real_data.shape[1], 1))
 
