@@ -1,3 +1,4 @@
+from pyexpat import model
 from keras import layers
 
 DATA_SOURCE = "yahoo"
@@ -9,10 +10,12 @@ END_DATE = '2022-12-31'
 FEATURE_COLUMNS = ["Open", "High", "Low", "Close"]
 IS_SCALED_DATA = True
 
+TRAIN_RATIO = 0.8
+
 # Number of days on which to base the prediction process
 NUMBER_OF_PAST_DAYS = 60
 # Number of future days predicted
-NUMBER_OF_FUTURE_DAYS = 3
+NUMBER_OF_FUTURE_DAYS = 1
 
 LOOKUP_STEPS = 10
 

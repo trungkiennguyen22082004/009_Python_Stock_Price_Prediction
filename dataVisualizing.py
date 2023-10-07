@@ -94,6 +94,16 @@ def boxplotChartDisplay(data, tradingDaysNumber=1, title="Stock Boxplot Chart"):
         
         # Adjust the layout of the plot to prevent elements from overlapping and improve overall aesthetics
         plt.tight_layout()
+
+def plotSingleFeature(predictionName, actualData, predictedData):
+    plt.figure(figsize=(16, 9))
+    plt.title(predictionName)
+    plt.plot(actualData, label="Actual Prices", color="blue")
+    plt.plot(predictedData, label="Predicted Prices", color="orange")
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.legend()
+    plt.show()
     
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST DATA VISUALIZING

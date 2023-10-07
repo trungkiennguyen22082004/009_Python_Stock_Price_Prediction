@@ -41,7 +41,7 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
             data = yf.download(company, start=startDate, end=endDate, progress=False)
             
             # Handle NaN values in the data by forwarding fill missing values
-            data.fillna(method='ffill', inplace=True)   
+            data.ffill(inplace=True)
             
             # Save data
             if (isStoredDataLocally):
@@ -66,7 +66,7 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
         lastSequence = np.array(data[featureColumns].tail(lookupSteps))
     
         # Handle NaN values in the data by forwarding fill missing values
-        data.fillna(method='ffill', inplace=True)
+        data.ffill(inplace=True)
         
         # Create a list of sequences of features and their corresponding targets
         sequenceData = []
@@ -190,7 +190,7 @@ def scaleData(data, dataFileName, featureColumns=["Open", "High", "Low", "Close"
 
 # processedData = processData(isStoredDataLocally=True, company=COMPANY, startDate=START_DATE, endDate=END_DATE, dataSource=DATA_SOURCE, 
 #                             numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, lookupSteps=LOOKUP_STEPS, featureColumns=FEATURE_COLUMNS,
-#                             trainRatio=0.8, randomSplit=False, randomSeed=None, isScaledData=True, featureRange=(0, 1), isStoredScaler=True)
+#                             trainRatio=TRAIN_RATIO, randomSplit=False, randomSeed=None, isScaledData=True, featureRange=(0, 1), isStoredScaler=True)
 
 # print("===================== DATA =======================")
 # print(processedData["Data"])

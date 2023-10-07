@@ -1,14 +1,21 @@
+import itertools
 import os
+import joblib
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from keras import layers, models, metrics
+from pmdarima import auto_arima
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
 
 from parameters import *
 from dataProcessing import *
-# from dataVisualizing import *
+from dataVisualizing import *
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -92,20 +99,15 @@ def trainAndTestMultivariateDLModel(processedData, featureColumns=["Open", "High
         yActualData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(yActualData))
         yPredictedData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(yPredictedData))
         
-    print("================ Y-ACTUAL DATA ===================")
-    print(yActualData)
-    print("=============== Y-PREDICTED DATA =================")   
-    print(yPredictedData)
+    # print("================ Y-ACTUAL DATA ===================")
+    # print(yActualData)
+    # print("=============== Y-PREDICTED DATA =================")   
+    # print(yPredictedData)
   
     #   Plot
-    plt.figure(figsize=(16, 9))
-    plt.title("{} Close Price Multivariate Prediction".format(COMPANY))
-    plt.plot(yActualData, label="Actual Prices", color="blue")
-    plt.plot(yPredictedData, label="Predicted Prices", color="orange")
-    plt.xlabel("Date")
-    plt.ylabel("Price")
-    plt.legend()
-    plt.show()
+    # plotSingleFeature("{} Close Price Multivariate Prediction", yActualData, yPredictedData)
+    
+    return (yActualData, yPredictedData)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST MACHINE LEARNING MODEL - MULTISTEP + MULTIVARIATE PROBLEM
@@ -147,10 +149,10 @@ def trainAndTestMultistepDLModel(processedData, featureColumns=["Open", "High", 
         yActualData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(yActualData))
         yPredictedData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(yPredictedData))
    
-    print("================ Y-ACTUAL DATA ===================")
-    print(yActualData)
-    print("=============== Y-PREDICTED DATA =================")   
-    print(yPredictedData)
+    # print("================ Y-ACTUAL DATA ===================")
+    # print(yActualData)
+    # print("=============== Y-PREDICTED DATA =================")   
+    # print(yPredictedData)
 
     #   When doing multi-step predicting, most of the future predicted days have more than 1 value. 
     #   E.g. "k" = 2; the original data: [..., a, b, c, d, ...]; using data before "a", "b" to get the predicted data of [b1, c1], [c2, d2] respectively; 
@@ -212,29 +214,245 @@ def trainAndTestMultistepDLModel(processedData, featureColumns=["Open", "High", 
         
     finalYPredictedData = np.array(finalYPredictedData)
         
-    print("============== FINAL Y-ACTUAL DATA ===============")
-    print(finalYActualData)
-    print("============= FINAL Y-PREDICTED DATA =============")   
-    print(finalYPredictedData)
+    # print("============== FINAL Y-ACTUAL DATA ===============")
+    # print(finalYActualData)
+    # print("============= FINAL Y-PREDICTED DATA =============")   
+    # print(finalYPredictedData)
     
     #   Plot
-    plt.figure(figsize=(16, 9))
-    plt.title("{} Close Price Multistep Prediction".format(COMPANY))
-    plt.plot(finalYActualData, label="Actual Prices", color="blue")
-    plt.plot(finalYPredictedData, label="Predicted Prices", color="orange")
-    plt.xlabel("Date")
-    plt.ylabel("Price")
-    plt.legend()
-    plt.show()
+    # plotSingleFeature("{} Close Price Multivariate and Multistep Prediction".format(COMPANY), finalYActualData, finalYPredictedData)
+    
+    return (finalYActualData, finalYPredictedData)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# TEST MACHINE LEARNING MODEL - ARIMA
+def createARIMAModel(processedData):
+    data = processedData["XTest"]
+    actualData = processedData["YTest"]
+
+    # Check if the model's folder is exist
+    if (not os.path.isdir("models")):
+        os.mkdir("models")     
+
+    # Get the close data
+    singleFeatureData = []
+    for i in range(0, len(data)):
+        singleFeatureSequence = []
+        for sequence in data[i]:
+            singleFeatureSequence.append(sequence[2])
+
+        singleFeatureData.append(singleFeatureSequence)
+        
+    singleFeatureData = np.array(singleFeatureData)
+        
+    # Make sure the data become stationary
+    singleFeatureStationaryData = []
+    for singleFeatureSequence in singleFeatureData:
+        singleFeatureStationaryData.append(makeStationaryData(data=singleFeatureSequence))
+        
+    singleFeatureStationaryData = np.array(singleFeatureStationaryData)
+
+    predictedData = []
+
+    # Create and fit ARIMA models
+    for i in range(0, len(singleFeatureStationaryData)):
+        modelFilePath = "models/{}-type_{}-company_{}-feature_{}-traingDataShape_{}-index.pkl".format("ARIMA", COMPANY, "Close", data.shape, i)        
+
+        if (not os.path.exists(modelFilePath)):
+            # Find the best parameters for the model for each sequence
+            model = auto_arima(singleFeatureStationaryData[i], start_p=0, start_q=0, test="adf", max_p=7, max_q=7,
+                               m=1, d=None, seasonal=False, start_P=0, D=0, trace=True,
+                               error_action="ignore", suppress_warnings=True, stepwise=True)
+        
+            bestOrder = model.order
+            bestSeasonalOrder = model.seasonal_order
+        
+            # Create model for each sequence
+            model = ARIMA(singleFeatureStationaryData[i], order=bestOrder, seasonal_order=bestSeasonalOrder)
+            # Fit the model
+            fittedModel = model.fit()
+            # Save the model
+            fittedModel.save(modelFilePath)
+            print("ARIMA model saved.")
+        else:
+            # Load the model
+            fittedModel = ARIMAResults.load(modelFilePath)
+            print("ARIMA model loaded.")  
+        
+        # Predict the data
+        (forecastData, standardErrors, confidenceIntervals) = fittedModel.forecast(3, alpha=0.05)
+        
+        predictedData.append(forecastData)
+       
+    predictedData = np.array(predictedData)
+    
+    # Descale data
+    actualData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(actualData))
+    predictedData = np.squeeze(processedData["ColumnScalers"]["Close"].inverse_transform(np.expand_dims(predictedData, axis=0)))
+    
+    print("=================== ACTUAL DATA ==================")
+    print(actualData)
+    print("================= PREDICTED DATA =================")
+    print(predictedData)
+    
+    # Plot data
+    # plotSingleFeature("{} Close Price Prediction with ARIMA model".format(COMPANY), actualData, predictedData)
+
+    return (actualData, predictedData)
+    
+def makeStationaryData(data):
+    stationaryData = data    
+
+    aDFResult = adfuller(data, autolag="AIC")
+    
+    if (aDFResult[1] >= 0.05):
+        dataLog = np.log(data)
+        dataLog = pd.DataFrame(dataLog)
+        movingAverage = dataLog.rolling(window=12).mean()
+        dataLogMinusMean = dataLog - movingAverage
+        dataLogMinusMean.ffill(inplace=True) 
+        
+    return stationaryData
+    
 
 processedData = processData(isStoredDataLocally=True, company=COMPANY, startDate=START_DATE, endDate=END_DATE, dataSource=DATA_SOURCE, 
                             numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, lookupSteps=LOOKUP_STEPS, featureColumns=FEATURE_COLUMNS,
-                            trainRatio=0.8, randomSplit=False, randomSeed=None, isScaledData=IS_SCALED_DATA, featureRange=(0, 1), isStoredScaler=True)
+                            trainRatio=TRAIN_RATIO, randomSplit=False, randomSeed=None, isScaledData=IS_SCALED_DATA, featureRange=(0, 1), isStoredScaler=True)
 
-# trainAndTestMultivariateDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
-#                                dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
-#                                epochs=EPOCHS, batchSize=BATCH_SIZE)
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# TEST MACHINE LEARNING MODEL - ARIMA AND LSTM/GRU/RNN
+# (secondYActualData, secondYPredictedData) = createARIMAModel(processedData)
 
-trainAndTestMultistepDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
-                             dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
-                             epochs=EPOCHS, batchSize=BATCH_SIZE)
+# (firstYActualData, firstYPredictedData) = trainAndTestMultivariateDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, 
+#                                                                           numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, 
+#                                                                           layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
+#                                                                           dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
+#                                                                           epochs=EPOCHS, batchSize=BATCH_SIZE)
+
+# (finalYActualData, finalYPredictedData) = ([], [])
+# for i in range(0, min(len(firstYPredictedData), len(secondYPredictedData))):
+#     finalYActualData.append((firstYActualData[i] + secondYActualData[i]) / 2)
+#     finalYPredictedData.append((firstYPredictedData[i] + secondYPredictedData[i]) / 2)
+    
+#   Plot data
+# plotSingleFeature("{} Close Price Prediction with ARIMA and LSTM/GRU/RNN model".format(COMPANY), finalYActualData, finalYPredictedData)
+
+# trainAndTestMultistepDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
+#                              dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
+#                              epochs=EPOCHS, batchSize=BATCH_SIZE)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# TEST MACHINE LEARNING MODEL - RANDOM FOREST
+def createRTModel(processedData, trainRatio):
+    # Get the original data downloaded from Yahoo Finance
+    data = processedData["Data"]
+    
+    # Split data
+    trainSamples = int(trainRatio * len(data))
+    (trainData, testData) = (data[:trainSamples], data[trainSamples:])
+    
+    # Get the xTrain, yTrain, xTest and yTest data
+    xTrain = trainData[FEATURE_COLUMNS]
+    yTrain = trainData["Close"]
+    
+    xTest = testData[FEATURE_COLUMNS]
+    yTest = testData["Close"]
+    
+    modelFilePath = "models/{}-type_{}-company_{}-feature_{}-xTrainShape.pkl".format("RandomForest", COMPANY, "Close", xTrain.shape)   
+    
+    if (not os.path.exists(modelFilePath)):
+        # Number of trees in Random Forest
+        numOfEstimators = [500, 1000, 2000]
+        # Maximum depth of levels
+        maxDepth = [10, 20, 50]
+        # Minimum number of samples required for node splitting
+        minSamplesSplitting = [50, 100, 200]
+        # Minimum number of samples required at each node (leaf)
+        minSamplesEachNode = [2, 4, 8]
+    
+        testAccurateData = pd.DataFrame(columns=["NumOfEstimators", "MaxDepth", "MinSamplesSplitting", "MinSamplesEachNode", "AccuracyTrain", "AccuracyTest"])
+    
+        for element in list(itertools.product(numOfEstimators, maxDepth, minSamplesSplitting, minSamplesEachNode)):
+            # Create the model
+            model = RandomForestRegressor(n_estimators=element[0], max_depth=element[1], min_samples_split=element[2], min_samples_leaf=element[3])
+            # Fit the model
+            model.fit(xTrain, yTrain)
+        
+            # Train the model
+            #   Predict with RF prediction method
+            predictedTrainData = model.predict(xTrain)
+            #   Compute the absolute errors
+            errorsTrain = abs(predictedTrainData - yTrain)
+            #   Compute the mean absolute error (in precentage)
+            mapeTrain = 100 * (errorsTrain / yTrain)
+            #   Compute the accuracy
+            accuracyTrain = 100 - np.mean(mapeTrain)
+        
+            # Test data
+            #   Predict with RF prediction method
+            predictedTestData = model.predict(xTest)
+            #   Compute the absolute errors
+            errorsTest = abs(predictedTestData - yTest)
+            #   Compute the mean absolute error (in precentage)
+            mapeTest = 100 * (errorsTest / yTest)
+            #   Compute the accuracy
+            accuracyTest = 100 - np.mean(mapeTest)	
+        
+            testAccurateDataElement = pd.DataFrame(index = range(1), columns = ["NumOfEstimators", "MaxDepth", "MinSamplesSplitting", "MinSamplesEachNode", "AccuracyTrain", "AccuracyTest"])
+        
+            testAccurateDataElement.loc[:, "NumOfEstimators"] = element[0]
+            testAccurateDataElement.loc[:, "MaxDepth"] = element[1]
+            testAccurateDataElement.loc[:, "MinSamplesSplitting"] = element[2]
+            testAccurateDataElement.loc[:, "MinSamplesEachNode"] = element[3]
+            testAccurateDataElement.loc[:, "AccuracyTrain"] = accuracyTrain
+            testAccurateDataElement.loc[:, "AccuracyTest"] = accuracyTest
+        
+            testAccurateData = pd.concat([testAccurateData, testAccurateDataElement], ignore_index=True)
+        
+        bestParameters = testAccurateData.loc[testAccurateData["AccuracyTest"] == max(testAccurateData["AccuracyTest"])]
+        
+        bestParameters = [bestParameters["NumOfEstimators"].values[0], bestParameters["MaxDepth"].values[0], bestParameters["MinSamplesSplitting"].values[0], bestParameters["MinSamplesEachNode"].values[0], 
+                          bestParameters["AccuracyTrain"].values[0], bestParameters["AccuracyTest"].values[0]]
+        
+        print("============== TEST ACCURATE DATA ================")
+        print(testAccurateData)
+        print("================ BEST PARAMETERS =================")
+        print(bestParameters)
+
+        # Create and fit the model with the best found parameters
+        model = RandomForestRegressor(n_estimators=bestParameters[0], max_depth=bestParameters[1], min_samples_split=bestParameters[2], min_samples_leaf=bestParameters[3])
+        model.fit(xTrain, yTrain)
+        
+        # Save the model
+        joblib.dump(model, modelFilePath)
+    else:
+        model = joblib.load(modelFilePath)
+    
+    # Predict the model
+    yPredictedData = model.predict(xTest)
+
+    yActualData = np.array(yTest)
+    yPredictedData = np.array(yPredictedData)
+    
+    # Plot data
+    # plotSingleFeature("{} Close Price Prediction with Random Forest Regressor".format(COMPANY), yActualData, yPredictedData)
+    
+    return (yActualData, yPredictedData)
+    
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# TEST MACHINE LEARNING MODEL - RANDOM FOREST AND LSTM/GRU/RNN
+# (secondYActualData, secondYPredictedData) = createRTModel(processedData=processedData, trainRatio=TRAIN_RATIO)
+
+# (firstYActualData, firstYPredictedData) = trainAndTestMultivariateDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, 
+#                                                                           numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, 
+#                                                                           layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
+#                                                                           dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
+#                                                                           epochs=EPOCHS, batchSize=BATCH_SIZE)
+
+# (finalYActualData, finalYPredictedData) = ([], [])
+# for i in range(0, min(len(firstYPredictedData), len(secondYPredictedData))):
+#     finalYActualData.append((firstYActualData[i] + secondYActualData[i]) / 2)
+#     finalYPredictedData.append((firstYPredictedData[i] + secondYPredictedData[i]) / 2)
+    
+#   Plot data
+# plotSingleFeature("{} Close Price Prediction with RTRegressor and LSTM/GRU/RNN model".format(COMPANY), finalYActualData, finalYPredictedData)
