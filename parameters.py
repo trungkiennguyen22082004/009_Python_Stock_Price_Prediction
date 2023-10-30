@@ -3,6 +3,7 @@ from keras import layers
 
 DATA_SOURCE = "yahoo"
 COMPANY = "TSLA"
+COMPANY_NAME = "Tesla"
 
 START_DATE = '2015-01-01'
 END_DATE = '2022-12-31'

@@ -53,7 +53,7 @@ def constructDLModel(featureColumns=["Open", "High", "Low", "Close"], numOfPastD
     
     # Add Dense output layer (with <NUMBER_OF_FUTURE_DAYS> neuron (unit))
     model.add(layers.Dense(numOfFutureDays))
-    
+        
     # Compile the model (with loss function, evaluation metric (mean_absolute_error), and optimizer)
     model.summary()
     model.compile(optimizer=optimizer, loss=loss, metrics=[metrics.MeanAbsoluteError()])
@@ -343,7 +343,7 @@ processedData = processData(isStoredDataLocally=True, company=COMPANY, startDate
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST MACHINE LEARNING MODEL - RANDOM FOREST
-def createRTModel(processedData, trainRatio):
+def createRFModel(processedData, trainRatio):
     # Get the original data downloaded from Yahoo Finance
     data = processedData["Data"]
     
@@ -441,7 +441,7 @@ def createRTModel(processedData, trainRatio):
     
 # ---------------------------------------------------------------------------------------------------------------------------------------------------
 # TEST MACHINE LEARNING MODEL - RANDOM FOREST AND LSTM/GRU/RNN
-# (secondYActualData, secondYPredictedData) = createRTModel(processedData=processedData, trainRatio=TRAIN_RATIO)
+# (secondYActualData, secondYPredictedData) = createRFModel(processedData=processedData, trainRatio=TRAIN_RATIO)
 
 # (firstYActualData, firstYPredictedData) = trainAndTestMultivariateDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, 
 #                                                                           numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, 
@@ -456,3 +456,28 @@ def createRTModel(processedData, trainRatio):
     
 #   Plot data
 # plotSingleFeature("{} Close Price Prediction with RTRegressor and LSTM/GRU/RNN model".format(COMPANY), finalYActualData, finalYPredictedData)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------
+# TEST MACHINE LEARNING MODEL - ARIMA AND RANDOM FOREST AND LSTM/GRU/RNN
+
+# LSTM/GRU/RNN
+(firstYActualData, firstYPredictedData) = trainAndTestMultivariateDLModel(processedData=processedData, featureColumns=FEATURE_COLUMNS, 
+                                                                          numOfPastDays=NUMBER_OF_PAST_DAYS, numOfFutureDays=NUMBER_OF_FUTURE_DAYS, 
+                                                                          layersNumber=LAYERS_NUMBER, layerSize=LAYER_SIZE, layerName=LAYER_NAME, 
+                                                                          dropout=DROPOUT, loss=LOSS, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL,
+                                                                          epochs=EPOCHS, batchSize=BATCH_SIZE)
+
+# RFRegressor
+(secondYActualData, secondYPredictedData) = createRFModel(processedData=processedData, trainRatio=TRAIN_RATIO)
+
+# ARIMA
+(thirdYActualData, thirdYPredictedData) = createARIMAModel(processedData)
+
+# Averaging outputs
+(finalYActualData, finalYPredictedData) = ([], [])
+for i in range(0, min(len(firstYPredictedData), len(secondYPredictedData))):
+    finalYActualData.append((firstYActualData[i] + secondYActualData[i] + thirdYActualData[i]) / 3)
+    finalYPredictedData.append((firstYPredictedData[i] + secondYPredictedData[i] + thirdYPredictedData[i]) / 3)
+
+#   Plot data
+plotSingleFeature("{} Close Price Prediction with ARIMA, RFRegressor and LSTM/GRU/RNN model".format(COMPANY), finalYActualData, finalYPredictedData)

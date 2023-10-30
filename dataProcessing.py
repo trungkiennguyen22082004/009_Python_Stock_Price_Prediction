@@ -1,7 +1,5 @@
 import collections
-from hmac import new
 import os
-from unittest import result
 import joblib
 
 import pandas as pd
@@ -102,7 +100,7 @@ def processData(isStoredDataLocally=True, company="TSLA", startDate="2015-01-01"
             # Calculate the number of rows in the new 2D array
             newYLength = len(y) + 1 - numOfFutureDays
 
-            # Initialize the 2D array
+            # Initialize the 2D array   
             intermediateY = np.empty((newYLength, numOfFutureDays), dtype=y.dtype)
             
             # Fill the new 2D array
